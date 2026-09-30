@@ -1,3 +1,5 @@
+// Builds NATURE_Trial_2026.pptx — journal club deck, simple light style.
+// Usage: node build_nature_deck.js [output.pptx]
 const pptxgen = require("pptxgenjs");
 const React = require("react");
 const ReactDOMServer = require("react-dom/server");
@@ -7,554 +9,558 @@ const path = require("path");
 
 const OUT = process.argv[2] || path.join(__dirname, "NATURE_Trial_2026.pptx");
 
-// Palette: "clinical noir" — ink, crimson (heart), teal (enVast arm), slate (control)
-const INK = "0E1117";
-const CARD = "1A1F2B";
-const CRIMSON = "E5383B";
-const ROSE = "F4B6BB";
-const TEAL = "1FA99C";
-const TEAL_LT = "E3F5F3";
-const SLATE = "8A93A6";
+// Palette: white page, deep maroon accent, warm grey for the control arm
+const MAROON = "8C1D40";
+const MAROON_DK = "6E1631";
+const TINT = "F8F0F3";
+const GREY = "A3AAB6";
+const INK = "1F2937";
+const MUTED = "6B7280";
+const LINE = "E5E7EB";
 const WHITE = "FFFFFF";
-const PAPER = "F6F7F9";
-const TEXT = "1B2230";
-const MUTED = "5E6778";
 const HEAD = "Cambria";
 const BODY = "Calibri";
 
+const PRESENTER = "Dr M. Waqas Saleem";
+const ROLE = "PGR Cardiology";
+const PLACE = "Cardiac Centre, BVH Bahawalpur";
+
+const svgToPng = async (svg) =>
+  "image/png;base64," + (await sharp(Buffer.from(svg)).png().toBuffer()).toString("base64");
+
 async function icon(Comp, color, size = 256) {
-  const svg = ReactDOMServer.renderToStaticMarkup(
+  return svgToPng(ReactDOMServer.renderToStaticMarkup(
     React.createElement(Comp, { color: "#" + color, size: String(size) })
-  );
-  const buf = await sharp(Buffer.from(svg)).png().toBuffer();
-  return "image/png;base64," + buf.toString("base64");
+  ));
 }
 
-// ECG trace motif rendered as a transparent PNG
-async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
-  const mid = h * 0.62;
-  const seg = w / beats;
-  let d = `M0 ${mid}`;
-  for (let i = 0; i < beats; i++) {
-    const x = i * seg;
-    const u = seg / 100;
-    d += ` L${x + 20 * u} ${mid}`;
-    d += ` Q${x + 25 * u} ${mid - h * 0.1} ${x + 30 * u} ${mid}`; // P
-    d += ` L${x + 38 * u} ${mid}`;
-    d += ` L${x + 41 * u} ${mid + h * 0.1}`; // Q
-    d += ` L${x + 45 * u} ${h * 0.05}`; // R
-    d += ` L${x + 49 * u} ${h * 0.95}`; // S
-    d += ` L${x + 52 * u} ${mid}`;
-    d += ` L${x + 62 * u} ${mid}`;
-    d += ` Q${x + 70 * u} ${mid - h * 0.22} ${x + 78 * u} ${mid}`; // T
-    d += ` L${x + 100 * u} ${mid}`;
+// ───────── Illustrations (schematic, drawn as SVG) ─────────
+const C = {
+  wall: "#EFC3CB", wallEdge: "#D98E9C", lumen: "#FFF7F8",
+  clot: "#8E1B2E", clotDk: "#6B1222", wire: "#374151",
+  cath: "#64748B", mesh: "#475569", flow: "#8C1D40",
+};
+
+// diamond-cell mesh inside a rounded rectangle
+function mesh(x, y, w, h, color, sw = 2.2, cell = 26, id = "m") {
+  let lines = "";
+  for (let k = -Math.ceil(h / cell) - 1; k <= Math.ceil(w / cell) + 1; k++) {
+    const x0 = x + k * cell;
+    lines += `<line x1="${x0}" y1="${y}" x2="${x0 + h}" y2="${y + h}"/>`;
+    lines += `<line x1="${x0 + h}" y1="${y}" x2="${x0}" y2="${y + h}"/>`;
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><path d="${d}" fill="none" stroke="#${color}" stroke-width="${stroke}" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-  const buf = await sharp(Buffer.from(svg)).png().toBuffer();
-  return "image/png;base64," + buf.toString("base64");
+  return `<clipPath id="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2.6}"/></clipPath>
+    <g clip-path="url(#${id})" stroke="${color}" stroke-width="${sw}" fill="none">${lines}</g>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2.6}" fill="none" stroke="${color}" stroke-width="${sw + 0.6}"/>`;
+}
+
+function clot(cx, cy, rx, ry) {
+  const pts = [];
+  const n = 18;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = 1 + 0.12 * Math.sin(i * 2.7) + 0.08 * Math.cos(i * 4.1);
+    pts.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
+  }
+  let d = `M${(pts[0][0] + pts[n - 1][0]) / 2} ${(pts[0][1] + pts[n - 1][1]) / 2}`;
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n];
+    d += ` Q${p[0]} ${p[1]} ${(p[0] + q[0]) / 2} ${(p[1] + q[1]) / 2}`;
+  }
+  return `<path d="${d} Z" fill="${C.clot}" stroke="${C.clotDk}" stroke-width="2"/>
+    <circle cx="${cx - rx * 0.3}" cy="${cy - ry * 0.25}" r="${ry * 0.12}" fill="#B0364A" opacity="0.7"/>
+    <circle cx="${cx + rx * 0.35}" cy="${cy + ry * 0.2}" r="${ry * 0.1}" fill="#B0364A" opacity="0.7"/>`;
+}
+
+function artery(w, h) {
+  const y0 = h * 0.28, y1 = h * 0.72;
+  return `<rect x="0" y="${y0 - 22}" width="${w}" height="${y1 - y0 + 44}" fill="${C.wall}"/>
+    <line x1="0" y1="${y0 - 22}" x2="${w}" y2="${y0 - 22}" stroke="${C.wallEdge}" stroke-width="3"/>
+    <line x1="0" y1="${y1 + 22}" x2="${w}" y2="${y1 + 22}" stroke="${C.wallEdge}" stroke-width="3"/>
+    <rect x="0" y="${y0}" width="${w}" height="${y1 - y0}" fill="${C.lumen}"/>`;
+}
+
+const arrowDefs = `<defs><marker id="ah" markerWidth="10" markerHeight="10" refX="6" refY="5" orient="auto">
+  <path d="M0 0 L10 5 L0 10 Z" fill="${C.flow}"/></marker></defs>`;
+const flowArrows = (xs, y) => xs.map((x) =>
+  `<line x1="${x}" y1="${y}" x2="${x + 60}" y2="${y}" stroke="${C.flow}" stroke-width="5" marker-end="url(#ah)"/>`).join("");
+
+// procedure panels: 600 x 300
+function panel(step) {
+  const W = 600, H = 300, cy = H / 2;
+  let body = artery(W, H);
+  if (step === 1) {
+    body += clot(330, cy, 95, 40);
+    body += `<line x1="0" y1="${cy}" x2="560" y2="${cy}" stroke="${C.wire}" stroke-width="3"/>`;
+    body += `<line x1="0" y1="${cy}" x2="455" y2="${cy}" stroke="${C.cath}" stroke-width="11" stroke-linecap="round"/>`;
+  } else if (step === 2) {
+    body += clot(330, cy, 95, 40);
+    body += `<line x1="0" y1="${cy}" x2="560" y2="${cy}" stroke="${C.wire}" stroke-width="3"/>`;
+    body += `<line x1="0" y1="${cy}" x2="190" y2="${cy}" stroke="${C.cath}" stroke-width="11" stroke-linecap="round"/>`;
+    body += mesh(215, cy - 42, 240, 84, "#E5E7EB", 2.4, 26, "p2");
+  } else if (step === 3) {
+    body += `<rect x="0" y="${cy - 30}" width="120" height="60" rx="8" fill="${C.cath}" opacity="0.9"/>`;
+    body += clot(205, cy, 70, 32);
+    body += mesh(130, cy - 36, 160, 72, "#E5E7EB", 2.2, 22, "p3");
+    body += `<line x1="0" y1="${cy}" x2="560" y2="${cy}" stroke="${C.wire}" stroke-width="3"/>`;
+    body += `<line x1="470" y1="${cy - 58}" x2="360" y2="${cy - 58}" stroke="${C.wire}" stroke-width="5" marker-end="url(#ah)"/>`;
+    body += flowArrows([350, 470], cy + 45);
+  } else {
+    body += `<rect x="240" y="${cy - 66}" width="180" height="132" fill="${C.wall}" opacity="0.6"/>`;
+    body += mesh(240, cy - 66, 180, 132, "#64748B", 3, 30, "p4");
+    body += flowArrows([40, 150, 460], cy);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${arrowDefs}
+    <rect width="${W}" height="${H}" fill="#FFFFFF"/>${body}</svg>`;
+}
+
+// device close-up: 1400 x 520
+function deviceSvg() {
+  const W = 1400, H = 520, cy = 250;
+  const mx0 = 430, mx1 = 1030, mh = 170;
+  const lab = (x, y, tx, ty, text) => `
+    <line x1="${x}" y1="${y}" x2="${tx}" y2="${ty + (ty < y ? 14 : -30)}" stroke="#9CA3AF" stroke-width="2"/>
+    <circle cx="${x}" cy="${y}" r="6" fill="${C.flow}"/>
+    <text x="${tx}" y="${ty}" font-family="Carlito, Calibri, Arial" font-size="30" fill="#1F2937" text-anchor="middle">${text}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <rect width="${W}" height="${H}" fill="#FFFFFF"/>
+    <line x1="30" y1="${cy}" x2="${mx0 - 90}" y2="${cy}" stroke="${C.wire}" stroke-width="7" stroke-linecap="round"/>
+    <line x1="30" y1="${cy}" x2="220" y2="${cy}" stroke="${C.cath}" stroke-width="26" stroke-linecap="round"/>
+    <g stroke="${C.mesh}" stroke-width="3" fill="none">
+      <line x1="${mx0 - 90}" y1="${cy}" x2="${mx0}" y2="${cy - mh / 2}"/>
+      <line x1="${mx0 - 90}" y1="${cy}" x2="${mx0}" y2="${cy + mh / 2}"/>
+      <line x1="${mx1 + 90}" y1="${cy}" x2="${mx1}" y2="${cy - mh / 2}"/>
+      <line x1="${mx1 + 90}" y1="${cy}" x2="${mx1}" y2="${cy + mh / 2}"/>
+    </g>
+    ${mesh(mx0, cy - mh / 2, mx1 - mx0, mh, C.mesh, 3, 40, "dv")}
+    <g opacity="0.85">${clot(640, cy + 5, 70, 42)}</g>
+    <line x1="${mx1 + 90}" y1="${cy}" x2="${mx1 + 230}" y2="${cy}" stroke="${C.wire}" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="${mx0 - 90}" cy="${cy}" r="9" fill="#111827"/><circle cx="${mx1 + 90}" cy="${cy}" r="9" fill="#111827"/>
+    ${lab(130, cy, 130, 110, "Microcatheter")}
+    ${lab(300, cy, 300, 440, "Push wire")}
+    ${lab(870, cy - mh / 2, 870, 90, "Self-expanding stent-retriever")}
+    ${lab(640, cy + 45, 640, 440, "Clot captured in the cells")}
+    ${lab(mx1 + 90, cy, mx1 + 170, 440, "Radiopaque marker / distal tip")}
+  </svg>`;
 }
 
 (async () => {
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9"; // 10 x 5.625
-  pres.title = "NATURE Trial — ESC Congress 2026";
-  pres.subject = "enVast-assisted mechanical thrombectomy in large-thrombus STEMI";
+  pres.title = "NATURE Trial — Journal Club";
+  pres.author = PRESENTER;
 
   const I = {
-    heart: await icon(fa.FaHeartbeat, CRIMSON),
-    heartW: await icon(fa.FaHeartbeat, WHITE),
-    tint: await icon(fa.FaTint, CRIMSON),
-    ban: await icon(fa.FaBan, CRIMSON),
-    book: await icon(fa.FaBookMedical, CRIMSON),
-    users: await icon(fa.FaUsers, WHITE),
-    random: await icon(fa.FaRandom, WHITE),
-    hospital: await icon(fa.FaHospital, TEAL),
-    flask: await icon(fa.FaFlask, WHITE),
-    mri: await icon(fa.FaMagnet, WHITE),
-    shield: await icon(fa.FaShieldAlt, WHITE),
+    heart: await icon(fa.FaHeartbeat, WHITE),
     check: await icon(fa.FaCheck, WHITE),
-    warn: await icon(fa.FaExclamation, WHITE),
-    arrowR: await icon(fa.FaArrowRight, SLATE),
-    arrowD: await icon(fa.FaArrowDown, SLATE),
-    target: await icon(fa.FaCrosshairs, WHITE),
-    link: await icon(fa.FaLink, WHITE),
-    undo: await icon(fa.FaUndoAlt, WHITE),
     times: await icon(fa.FaTimes, WHITE),
-    quote: await icon(fa.FaQuoteLeft, CRIMSON),
+    info: await icon(fa.FaInfoCircle, MAROON),
+    flask: await icon(fa.FaFlask, MAROON),
+    mri: await icon(fa.FaMagnet, MAROON),
+    shield: await icon(fa.FaShieldAlt, MAROON),
+    arrow: await icon(fa.FaArrowRight, GREY),
+    down: await icon(fa.FaArrowDown, GREY),
   };
-  const ECG_RED = await ecg(CRIMSON, 2400, 300, 4, 7);
-  const ECG_SMALL = await ecg(CRIMSON, 600, 120, 1, 8);
+  const DEVICE = await svgToPng(deviceSvg());
+  const P = [];
+  for (let i = 1; i <= 4; i++) P.push(await svgToPng(panel(i)));
 
   let n = 0;
-  const TOTAL = 13;
 
-  function frame(slide, dark) {
+  // Content slide: white, title top-left, quiet footer
+  function slide(title, notes) {
     n++;
-    slide.background = { color: dark ? INK : WHITE };
-    slide.addImage({ data: ECG_SMALL, x: 8.55, y: 5.17, w: 0.75, h: 0.15 });
-    slide.addText(`${String(n).padStart(2, "0")} / ${TOTAL}`, {
-      x: 9.3, y: 5.1, w: 0.6, h: 0.3, fontFace: BODY, fontSize: 9,
-      color: dark ? SLATE : MUTED, align: "right", margin: 0, isTextBox: true,
-    });
-    slide.addText("NATURE · ESC 2026", {
-      x: 0.5, y: 5.1, w: 3, h: 0.3, fontFace: BODY, fontSize: 9, charSpacing: 2,
-      color: dark ? SLATE : MUTED, margin: 0, isTextBox: true,
-    });
-  }
-
-  function header(slide, kicker, title, dark) {
-    slide.addText(kicker.toUpperCase(), {
-      x: 0.5, y: 0.35, w: 9, h: 0.3, fontFace: BODY, fontSize: 11, bold: true,
-      charSpacing: 4, color: CRIMSON, margin: 0, isTextBox: true,
-    });
-    slide.addText(title, {
-      x: 0.5, y: 0.65, w: 9, h: 0.7, fontFace: HEAD, fontSize: 30, bold: true,
-      color: dark ? WHITE : TEXT, margin: 0, valign: "top", isTextBox: true,
-    });
-  }
-
-  function circleIcon(slide, x, y, d, fill, img) {
-    slide.addShape(pres.shapes.OVAL, { x, y, w: d, h: d, fill: { color: fill }, line: { color: fill } });
-    const p = d * 0.26;
-    slide.addImage({ data: img, x: x + p, y: y + p, w: d - 2 * p, h: d - 2 * p });
-  }
-
-  // ─────────────── 1. Title ───────────────
-  {
     const s = pres.addSlide();
-    frame(s, true);
-    s.addImage({ data: ECG_RED, x: -0.2, y: 2.9, w: 10.4, h: 1.15, transparency: 55 });
-    s.addText("ESC CONGRESS 2026 · MUNICH · LATE-BREAKING CLINICAL TRIAL", {
-      x: 0.6, y: 0.55, w: 8.8, h: 0.3, fontFace: BODY, fontSize: 11, bold: true,
-      charSpacing: 4, color: ROSE, margin: 0, isTextBox: true,
+    s.background = { color: WHITE };
+    s.addText(title, {
+      x: 0.5, y: 0.35, w: 9, h: 0.6, fontFace: HEAD, fontSize: 28, bold: true, color: INK,
+      margin: 0, valign: "middle", isTextBox: true,
     });
-    s.addText("NATURE", {
-      x: 0.6, y: 0.95, w: 8.8, h: 1.3, fontFace: HEAD, fontSize: 88, bold: true,
-      color: WHITE, charSpacing: 6, margin: 0, isTextBox: true,
+    s.addText("NATURE Trial · Journal Club · Cardiac Centre, BVH Bahawalpur", {
+      x: 0.5, y: 5.15, w: 6, h: 0.25, fontFace: BODY, fontSize: 9, color: MUTED, margin: 0, isTextBox: true,
     });
-    s.addText(
-      "enVast-assisted mechanical thrombectomy versus standard primary PCI in STEMI with large thrombus burden",
-      { x: 0.6, y: 2.2, w: 7.2, h: 0.8, fontFace: HEAD, italic: true, fontSize: 18, color: ROSE, margin: 0, valign: "top", isTextBox: true }
-    );
-    const stats = [["154", "patients"], ["11", "centres"], ["1 : 1", "randomised"], ["−26%", "infarct size"]];
-    stats.forEach(([v, l], i) => {
-      const x = 0.6 + i * 2.2;
-      s.addText(v, { x, y: 3.95, w: 2, h: 0.55, fontFace: HEAD, fontSize: 30, bold: true, color: i === 3 ? CRIMSON : WHITE, margin: 0, isTextBox: true });
-      s.addText(l.toUpperCase(), { x, y: 4.5, w: 2, h: 0.25, fontFace: BODY, fontSize: 10, charSpacing: 3, color: SLATE, margin: 0, isTextBox: true });
+    s.addText(String(n), {
+      x: 9.0, y: 5.15, w: 0.5, h: 0.25, fontFace: BODY, fontSize: 9, bold: true, color: MAROON, align: "right", margin: 0, isTextBox: true,
     });
-    s.addNotes(
-      "NATURE was presented as a late-breaking clinical trial at ESC Congress 2026 in Munich by Prof. Marco Valgimigli (Cardiocentro Ticino Institute, Lugano). " +
-      "It asks whether a coronary stent-retriever (enVast, Vesalio) used before conventional PCI can limit myocardial damage in STEMI patients with a large clot burden."
-    );
+    if (notes) s.addNotes(notes);
+    return s;
   }
 
-  // ─────────────── 2. The problem ───────────────
-  {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "The clinical problem", "Large thrombus: the clot that won’t stay put", false);
-    // Left: mechanism chain
-    const steps = [
-      ["Large thrombus burden", "Common in STEMI; ballooning and stenting can fragment the clot."],
-      ["Distal embolisation", "Debris showers into the microcirculation downstream of the culprit lesion."],
-      ["Microvascular obstruction", "Epicardial flow is restored, but tissue-level reperfusion fails."],
-      ["Larger infarct", "More myocardium lost, higher risk of heart failure and death."],
-    ];
-    steps.forEach(([t, d], i) => {
-      const y = 1.55 + i * 0.85;
-      s.addShape(pres.shapes.OVAL, { x: 0.5, y, w: 0.5, h: 0.5, fill: { color: i === 3 ? CRIMSON : INK }, line: { color: i === 3 ? CRIMSON : INK } });
-      s.addText(String(i + 1), { x: 0.5, y, w: 0.5, h: 0.5, fontFace: HEAD, fontSize: 16, bold: true, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
-      s.addText(t, { x: 1.2, y: y - 0.04, w: 3.7, h: 0.3, fontFace: BODY, fontSize: 15, bold: true, color: TEXT, margin: 0, isTextBox: true });
-      s.addText(d, { x: 1.2, y: y + 0.26, w: 3.7, h: 0.45, fontFace: BODY, fontSize: 11.5, color: MUTED, margin: 0, valign: "top", isTextBox: true });
-    });
-    // Right: history panel
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 5.3, y: 1.5, w: 4.2, h: 3.4, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
-    s.addText("Aspiration thrombectomy already failed", {
-      x: 5.55, y: 1.65, w: 3.8, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true, color: TEXT, margin: 0, isTextBox: true,
-    });
-    const hist = [
-      [I.tint, "TASTE", "n = 7,244 · no mortality benefit from routine aspiration"],
-      [I.tint, "TOTAL", "n = 10,732 · no clinical benefit; excess stroke at 30 days"],
-      [I.ban, "Guidelines", "Routine thrombus aspiration not recommended (ESC Class III)"],
-    ];
-    hist.forEach(([ic, t, d], i) => {
-      const y = 2.15 + i * 0.85;
-      s.addImage({ data: ic, x: 5.55, y: y + 0.05, w: 0.32, h: 0.32 });
-      s.addText(t, { x: 6.05, y, w: 3.3, h: 0.3, fontFace: BODY, fontSize: 13, bold: true, color: CRIMSON, margin: 0, isTextBox: true });
-      s.addText(d, { x: 6.05, y: y + 0.28, w: 3.3, h: 0.5, fontFace: BODY, fontSize: 11, color: TEXT, margin: 0, valign: "top", isTextBox: true });
-    });
-    s.addNotes(
-      "The rationale: in patients with a large thrombus, PCI can push clot downstream, causing microvascular obstruction and larger infarcts. " +
-      "Manual aspiration was the obvious fix, but TASTE and TOTAL were neutral on hard outcomes and TOTAL raised a stroke signal, so guidelines advise against routine aspiration. " +
-      "NATURE tests a different mechanical approach — a stent-retriever — in a population selected for large thrombus."
-    );
-  }
+  const panelBox = (s, x, y, w, h, fill = TINT) =>
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, fill: { color: fill }, line: { color: fill }, rectRadius: 0.08 });
 
-  // ─────────────── 3. The device ───────────────
-  {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "The intervention", "enVast: a stent-retriever built for coronary clot", false);
-    s.addText(
-      "Developed by Vesalio from its NeVa neurovascular thrombectomy platform, enVast captures and removes thrombus mechanically before the operator balloons or stents the culprit lesion.",
-      { x: 0.5, y: 1.4, w: 9, h: 0.6, fontFace: BODY, fontSize: 13, color: MUTED, margin: 0, valign: "top", isTextBox: true }
-    );
-    const steps = [
-      [I.target, "Cross & deploy", "Wire the infarct-related artery and deploy the retriever across the thrombus."],
-      [I.link, "Capture", "The clot is engaged and held within the device’s struts."],
-      [I.undo, "Retrieve, then PCI", "Withdraw device and clot together, then complete conventional PCI."],
-    ];
-    steps.forEach(([ic, t, d], i) => {
-      const x = 0.5 + i * 3.15;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
-        x, y: 2.25, w: 2.75, h: 2.55, fill: { color: WHITE }, line: { color: "E4E7EC", width: 1 }, rectRadius: 0.12,
-        shadow: { type: "outer", color: "000000", opacity: 0.08, blur: 8, offset: 2, angle: 90 },
-      });
-      circleIcon(s, x + 0.3, 2.5, 0.7, i === 2 ? TEAL : CRIMSON, ic);
-      s.addText(`STEP ${i + 1}`, { x: x + 1.15, y: 2.62, w: 1.4, h: 0.3, fontFace: BODY, fontSize: 10, bold: true, charSpacing: 3, color: MUTED, margin: 0, isTextBox: true });
-      s.addText(t, { x: x + 0.3, y: 3.4, w: 2.25, h: 0.35, fontFace: HEAD, fontSize: 17, bold: true, color: TEXT, margin: 0, isTextBox: true });
-      s.addText(d, { x: x + 0.3, y: 3.8, w: 2.25, h: 0.85, fontFace: BODY, fontSize: 12, color: MUTED, margin: 0, valign: "top", isTextBox: true });
-      if (i < 2) s.addImage({ data: I.arrowR, x: x + 2.83, y: 3.4, w: 0.25, h: 0.25 });
-    });
-    s.addNotes(
-      "enVast is Vesalio's coronary clot retriever, derived from the NeVa device used for stroke thrombectomy. " +
-      "The idea: remove the bulk of the clot as a whole rather than aspirate it, so less debris embolises when the lesion is subsequently treated with balloon and stent."
-    );
-  }
+  const dot = (s, x, y, d, fill, content, isImg) => {
+    s.addShape(pres.shapes.OVAL, { x, y, w: d, h: d, fill: { color: fill }, line: { color: fill } });
+    if (isImg) {
+      const p = d * 0.27;
+      s.addImage({ data: content, x: x + p, y: y + p, w: d - 2 * p, h: d - 2 * p });
+    } else {
+      s.addText(content, { x, y, w: d, h: d, fontFace: BODY, fontSize: 13, bold: true, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
+    }
+  };
 
-  // ─────────────── 4. Trial design ───────────────
+  const bullets = (s, items, opts) =>
+    s.addText(items.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < items.length - 1 } })), {
+      fontFace: BODY, fontSize: 15, color: INK, paraSpaceAfter: 8, valign: "top", margin: 0, isTextBox: true, ...opts,
+    });
+
+  // ═════════ 1. Title (presenter) ═════════
   {
+    n++;
     const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Trial design", "Prospective, multicentre, randomised 1 : 1", false);
-    // Flow diagram
-    const fx = 0.5, fw = 5.6;
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: fx, y: 1.5, w: fw, h: 0.7, fill: { color: INK }, line: { color: INK }, rectRadius: 0.1 });
-    s.addImage({ data: I.users, x: fx + 0.2, y: 1.66, w: 0.38, h: 0.38 });
+    s.background = { color: MAROON };
+    s.addText("JOURNAL CLUB", {
+      x: 0.7, y: 0.6, w: 6, h: 0.35, fontFace: BODY, fontSize: 14, bold: true, charSpacing: 6, color: "F3C9D5", margin: 0, isTextBox: true,
+    });
+    s.addText("NATURE Trial", {
+      x: 0.7, y: 1.05, w: 8.5, h: 0.95, fontFace: HEAD, fontSize: 50, bold: true, color: WHITE, margin: 0, isTextBox: true,
+    });
+    s.addText("Mechanical thrombectomy with enVast in STEMI with large thrombus burden — a randomised superiority trial (ESC Congress 2026)", {
+      x: 0.7, y: 2.05, w: 7.6, h: 0.75, fontFace: BODY, fontSize: 16, color: "F3C9D5", margin: 0, valign: "top", isTextBox: true,
+    });
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.7, y: 3.2, w: 5.2, h: 1.6, fill: { color: MAROON_DK }, line: { color: MAROON_DK }, rectRadius: 0.08 });
     s.addText([
-      { text: "154 STEMI patients", options: { bold: true, fontSize: 15, breakLine: true } },
-      { text: "large thrombus burden · 11 centres", options: { fontSize: 11, color: ROSE } },
-    ], { x: fx + 0.75, y: 1.5, w: fw - 0.9, h: 0.7, fontFace: BODY, color: WHITE, valign: "middle", margin: 0, isTextBox: true });
-    s.addImage({ data: I.arrowD, x: fx + fw / 2 - 0.12, y: 2.27, w: 0.24, h: 0.24 });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: fx + fw / 2 - 1.3, y: 2.57, w: 2.6, h: 0.42, fill: { color: CRIMSON }, line: { color: CRIMSON }, rectRadius: 0.21 });
-    s.addText("RANDOMISED 1 : 1", { x: fx + fw / 2 - 1.3, y: 2.57, w: 2.6, h: 0.42, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 3, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
-    s.addImage({ data: I.arrowD, x: fx + 1.25, y: 3.06, w: 0.24, h: 0.24 });
-    s.addImage({ data: I.arrowD, x: fx + fw - 1.49, y: 3.06, w: 0.24, h: 0.24 });
-    const arms = [
-      [fx, TEAL, "enVast thrombectomy", "then conventional PCI"],
-      [fx + fw / 2 + 0.1, SLATE, "Standard of care", "conventional primary PCI"],
+      { text: "Presented by", options: { fontSize: 11, color: "F3C9D5", charSpacing: 2, breakLine: true } },
+      { text: PRESENTER, options: { fontSize: 22, bold: true, color: WHITE, fontFace: HEAD, breakLine: true } },
+      { text: ROLE, options: { fontSize: 14, color: WHITE, breakLine: true } },
+      { text: PLACE, options: { fontSize: 14, color: WHITE } },
+    ], { x: 1.0, y: 3.3, w: 4.8, h: 1.4, fontFace: BODY, valign: "middle", margin: 0, isTextBox: true });
+    s.addShape(pres.shapes.OVAL, { x: 7.3, y: 3.1, w: 1.8, h: 1.8, fill: { color: MAROON_DK }, line: { color: MAROON_DK } });
+    s.addImage({ data: I.heart, x: 7.75, y: 3.55, w: 0.9, h: 0.9 });
+    s.addNotes("Journal club presentation of the NATURE trial, presented as a late-breaking clinical trial at ESC Congress 2026 in Munich by Prof. Marco Valgimigli.");
+  }
+
+  // ═════════ 2. Background ═════════
+  {
+    const s = slide("Background: why a large thrombus matters",
+      "In STEMI with a large thrombus, balloon and stent can fragment clot and push it downstream (distal embolisation), causing microvascular obstruction and larger infarcts. " +
+      "Routine manual aspiration was tested in TASTE and TOTAL without clinical benefit, and TOTAL showed more strokes, so current ESC guidance does not recommend routine aspiration.");
+    const flow = ["Large thrombus", "Distal embolisation", "Microvascular obstruction", "Larger infarct"];
+    flow.forEach((t, i) => {
+      const x = 0.5 + i * 2.35;
+      panelBox(s, x, 1.3, 1.95, 0.9, i === 3 ? MAROON : TINT);
+      s.addText(t, { x, y: 1.3, w: 1.95, h: 0.9, fontFace: BODY, fontSize: 14, bold: true, color: i === 3 ? WHITE : INK, align: "center", valign: "middle", margin: 0.05, isTextBox: true });
+      if (i < 3) s.addImage({ data: I.arrow, x: x + 2.02, y: 1.64, w: 0.22, h: 0.22 });
+    });
+    s.addText("What we already know", { x: 0.5, y: 2.55, w: 9, h: 0.35, fontFace: HEAD, fontSize: 17, bold: true, color: MAROON, margin: 0, isTextBox: true });
+    bullets(s, [
+      "TASTE (n = 7,244): routine aspiration did not reduce mortality",
+      "TOTAL (n = 10,732): no clinical benefit, and more strokes at 30 days",
+      "ESC guidelines: routine thrombus aspiration is not recommended (Class III)",
+      "Question: can a stent-retriever remove clot better and more safely?",
+    ], { x: 0.5, y: 3.0, w: 9, h: 2.0 });
+  }
+
+  // ═════════ 3. The device (picture) ═════════
+  {
+    const s = slide("The enVast device",
+      "enVast is Vesalio's coronary clot retriever, derived from its NeVa neurovascular thrombectomy platform. " +
+      "It is delivered through a microcatheter, self-expands inside the clot, holds the clot in its cells and is then pulled back. " +
+      "The picture is a schematic illustration, not a photograph.");
+    s.addImage({ data: DEVICE, x: 0.5, y: 1.15, w: 9.0, h: 3.34 });
+    s.addText("Schematic illustration (not to scale). Coronary stent-retriever by Vesalio, derived from the NeVa neurovascular thrombectomy platform.", {
+      x: 0.5, y: 4.6, w: 9, h: 0.4, fontFace: BODY, fontSize: 11, italic: true, color: MUTED, align: "center", margin: 0, isTextBox: true,
+    });
+  }
+
+  // ═════════ 4. The procedure (pictures) ═════════
+  {
+    const s = slide("The procedure step by step",
+      "Step 1: the wire and microcatheter cross the thrombus. Step 2: the microcatheter is pulled back and the retriever expands inside the clot. " +
+      "Step 3: the retriever and the captured clot are withdrawn into the guide catheter, restoring flow. Step 4: conventional PCI with stent implantation completes the procedure.");
+    const caps = [
+      ["1", "Cross", "Wire and microcatheter pass through the clot"],
+      ["2", "Deploy", "Retriever opens inside the clot and holds it"],
+      ["3", "Retrieve", "Device and clot pulled back into the guide"],
+      ["4", "Stent", "Conventional PCI; flow restored"],
     ];
-    arms.forEach(([x, c, t, d]) => {
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 3.37, w: fw / 2 - 0.1, h: 0.8, fill: { color: c }, line: { color: c }, rectRadius: 0.1 });
-      s.addText([
-        { text: t, options: { bold: true, fontSize: 14, breakLine: true } },
-        { text: d, options: { fontSize: 11 } },
-      ], { x: x + 0.2, y: 3.37, w: fw / 2 - 0.5, h: 0.8, fontFace: BODY, color: WHITE, valign: "middle", margin: 0, isTextBox: true });
+    caps.forEach(([k, t, d], i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 0.5 + col * 4.6, y = 1.15 + row * 1.8;
+      s.addShape(pres.shapes.RECTANGLE, { x, y, w: 2.8, h: 1.4, fill: { color: WHITE }, line: { color: LINE, width: 1 } });
+      s.addImage({ data: P[i], x: x + 0.01, y: y + 0.01, w: 2.78, h: 1.38 });
+      dot(s, x + 2.95, y + 0.05, 0.42, MAROON, k);
+      s.addText(t, { x: x + 3.45, y: y + 0.05, w: 1.0, h: 0.42, fontFace: HEAD, fontSize: 14, bold: true, color: INK, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 2.95, y: y + 0.57, w: 1.5, h: 0.8, fontFace: BODY, fontSize: 11, color: MUTED, valign: "top", margin: 0, isTextBox: true });
     });
-    s.addText("Follow-up: CK-MB AUC  ·  CMR at day 3  ·  30-day clinical events", {
-      x: fx, y: 4.35, w: fw, h: 0.35, fontFace: BODY, fontSize: 11.5, italic: true, color: MUTED, align: "center", margin: 0, isTextBox: true,
+    s.addText("Schematic illustrations (not to scale).", {
+      x: 0.5, y: 4.8, w: 9, h: 0.25, fontFace: BODY, fontSize: 10, italic: true, color: MUTED, margin: 0, isTextBox: true,
     });
-    // Right: key facts
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 6.5, y: 1.5, w: 3.0, h: 3.2, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
+  }
+
+  // ═════════ 5. Trial design ═════════
+  {
+    const s = slide("Trial design",
+      "154 patients at 11 centres were randomised 1:1 to enVast-assisted thrombectomy followed by conventional PCI, or to standard primary PCI. " +
+      "The hypothesis was superiority of enVast on infarct size. Design paper: Landi et al., Cardiovascular Revascularization Medicine, 2026.");
+    panelBox(s, 0.5, 1.2, 5.4, 0.7, INK);
+    s.addText("154 STEMI patients with large thrombus · 11 centres", { x: 0.5, y: 1.2, w: 5.4, h: 0.7, fontFace: BODY, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
+    s.addImage({ data: I.down, x: 3.08, y: 2.0, w: 0.24, h: 0.24 });
+    s.addText("Randomised 1 : 1", { x: 1.7, y: 2.3, w: 3.0, h: 0.4, fontFace: BODY, fontSize: 13, bold: true, color: MAROON, align: "center", valign: "middle", margin: 0, isTextBox: true });
+    s.addImage({ data: I.down, x: 1.7, y: 2.78, w: 0.24, h: 0.24 });
+    s.addImage({ data: I.down, x: 4.46, y: 2.78, w: 0.24, h: 0.24 });
+    panelBox(s, 0.5, 3.1, 2.6, 1.0, MAROON);
+    s.addText([{ text: "enVast thrombectomy", options: { bold: true, breakLine: true } }, { text: "then conventional PCI", options: { fontSize: 12 } }],
+      { x: 0.5, y: 3.1, w: 2.6, h: 1.0, fontFace: BODY, fontSize: 14, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
+    panelBox(s, 3.3, 3.1, 2.6, 1.0, GREY);
+    s.addText([{ text: "Standard PCI", options: { bold: true, breakLine: true } }, { text: "standard of care", options: { fontSize: 12 } }],
+      { x: 3.3, y: 3.1, w: 2.6, h: 1.0, fontFace: BODY, fontSize: 14, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
     const facts = [
-      ["Hypothesis", "Superiority of enVast on infarct size"],
-      ["Principal investigator", "Prof. Marco Valgimigli, Cardiocentro Ticino, Lugano"],
+      ["Type", "Prospective, multicentre, randomised"],
+      ["Hypothesis", "Superiority on infarct size"],
+      ["PI", "Prof. Marco Valgimigli, Lugano"],
       ["Sponsor", "Vesalio"],
       ["Registry", "NCT04969471"],
     ];
     facts.forEach(([k, v], i) => {
-      const y = 1.68 + i * 0.74;
-      s.addText(k.toUpperCase(), { x: 6.75, y, w: 2.6, h: 0.25, fontFace: BODY, fontSize: 9.5, bold: true, charSpacing: 2, color: CRIMSON, margin: 0, isTextBox: true });
-      s.addText(v, { x: 6.75, y: y + 0.24, w: 2.6, h: 0.45, fontFace: BODY, fontSize: 12, color: TEXT, margin: 0, valign: "top", isTextBox: true });
+      const y = 1.2 + i * 0.6;
+      s.addText(k, { x: 6.4, y, w: 1.05, h: 0.5, fontFace: BODY, fontSize: 12, bold: true, color: MAROON, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(v, { x: 7.45, y, w: 2.05, h: 0.5, fontFace: BODY, fontSize: 12, color: INK, valign: "middle", margin: 0, isTextBox: true });
+      if (i < facts.length - 1) s.addShape(pres.shapes.LINE, { x: 6.4, y: y + 0.55, w: 3.1, h: 0, line: { color: LINE, width: 1 } });
     });
-    s.addNotes(
-      "154 patients at 11 centres were randomised 1:1 to enVast-assisted thrombectomy followed by conventional PCI, or to standard-of-care primary PCI. " +
-      "The design and rationale were published by Landi et al. in Cardiovascular Revascularization Medicine (March 2026)."
-    );
   }
 
-  // ─────────────── 5. Eligibility ───────────────
+  // ═════════ 6. Inclusion criteria ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Eligibility", "Inclusion and exclusion criteria", false);
-    const cols = [
-      [TEAL, TEAL_LT, I.check, "Inclusion", [
-        "Age ≥ 18 years",
-        "Chest pain > 20 min with ST elevation ≥ 1 mm in ≥ 2 contiguous leads, or infero-lateral MI with ST depression ≥ 1 mm in ≥ 2 of V1–V3 and a positive terminal T wave",
-        "TIMI thrombus grade ≥ 3 in the infarct-related artery (re-confirmed after wiring if TIMI 0 flow)",
-        "Intervention started within 8 h of symptom onset",
-        "Informed consent before the procedure",
-      ]],
-      [CRIMSON, "FDECEC", I.times, "Exclusion", [
-        "Unconscious patient",
-        "Infarct-related artery < 2.5 mm (visual estimate)",
-        "Severe calcification or extreme tortuosity at or proximal to the culprit lesion",
-        "Stent thrombosis as the culprit lesion",
-        "Previous MI in the same territory",
-        "Women of child-bearing potential",
-        "Participation in another interventional trial",
-      ]],
+    const s = slide("Inclusion criteria",
+      "Inclusion criteria as listed on ClinicalTrials.gov (NCT04969471). The key criterion is TIMI thrombus grade 3 or more, re-confirmed after wiring if the artery is occluded.");
+    const items = [
+      "Age ≥ 18 years",
+      "Chest pain > 20 min with ST elevation ≥ 1 mm in ≥ 2 contiguous leads, or infero-lateral MI with ST depression ≥ 1 mm in ≥ 2 of V1–V3 and a positive terminal T wave",
+      "TIMI thrombus grade ≥ 3 in the infarct-related artery (re-confirmed after wiring if TIMI 0 flow)",
+      "Intervention started within 8 hours of symptom onset",
+      "Informed consent before the procedure",
     ];
-    cols.forEach(([c, tint, ic, t, items], i) => {
-      const x = 0.5 + i * 4.6;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.45, w: 4.4, h: 3.45, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x + 0.2, y: 1.62, w: 4.0, h: 0.55, fill: { color: tint }, line: { color: tint }, rectRadius: 0.1 });
-      circleIcon(s, x + 0.32, 1.68, 0.43, c, ic);
-      s.addText(t, { x: x + 0.9, y: 1.62, w: 2.2, h: 0.55, fontFace: HEAD, fontSize: 17, bold: true, color: TEXT, valign: "middle", margin: 0, isTextBox: true });
-      s.addText(`${items.length} criteria`, { x: x + 2.9, y: 1.62, w: 1.15, h: 0.55, fontFace: BODY, fontSize: 10, bold: true, charSpacing: 2, color: c, align: "right", valign: "middle", margin: 0, isTextBox: true });
-      s.addText(items.map((it, j) => ({ text: it, options: { bullet: { indent: 14 }, breakLine: j < items.length - 1 } })), {
-        x: x + 0.3, y: 2.32, w: 3.85, h: 2.45, fontFace: BODY, fontSize: 11.5, color: TEXT, paraSpaceAfter: 5, valign: "top", margin: 0, isTextBox: true,
-      });
+    const hs = [0.4, 0.75, 0.52, 0.4, 0.4];
+    let y = 1.2;
+    items.forEach((t, i) => {
+      dot(s, 0.5, y, 0.4, MAROON, I.check, true);
+      s.addText(t, { x: 1.1, y: y + 0.07, w: 4.9, h: hs[i], fontFace: BODY, fontSize: 14, color: INK, valign: "top", margin: 0, isTextBox: true });
+      y += hs[i] + 0.3;
     });
-    s.addNotes(
-      "Eligibility as listed on ClinicalTrials.gov (NCT04969471). The key enrichment criterion is a TIMI thrombus grade of 3 or more; in occluded vessels (grade 5, TIMI 0 flow) the grade had to be re-confirmed after wiring. " +
-      "Patients had to be treated within 8 hours of symptom onset. Exclusions remove small, heavily calcified or tortuous vessels where a retriever is hard to deliver, stent thrombosis, prior infarction in the same territory and unconscious patients."
-    );
+    panelBox(s, 6.4, 1.2, 3.1, 3.7);
+    s.addImage({ data: I.info, x: 6.65, y: 1.42, w: 0.38, h: 0.38 });
+    s.addText("Key point", { x: 7.15, y: 1.42, w: 2.2, h: 0.38, fontFace: HEAD, fontSize: 15, bold: true, color: MAROON, valign: "middle", margin: 0, isTextBox: true });
+    s.addText("TIMI thrombus grade ≥ 3", { x: 6.65, y: 2.0, w: 2.7, h: 0.4, fontFace: HEAD, fontSize: 17, bold: true, color: INK, margin: 0, isTextBox: true });
+    s.addText("A definite clot longer than half the vessel diameter. These patients are the most likely to embolise clot during PCI, so they have the most to gain from thrombectomy.", {
+      x: 6.65, y: 2.5, w: 2.65, h: 2.2, fontFace: BODY, fontSize: 13, color: INK, valign: "top", margin: 0, isTextBox: true,
+    });
   }
 
-  // ─────────────── 6. Endpoints ───────────────
+  // ═════════ 7. Exclusion criteria ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Endpoints", "Enriched for clot; judged on infarct size", false);
-    // Left enrichment card (dark)
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 1.5, w: 3.9, h: 3.3, fill: { color: INK }, line: { color: INK }, rectRadius: 0.12 });
-    s.addText("ENRICHED FOR CLOT", { x: 0.8, y: 1.7, w: 3.3, h: 0.3, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 4, color: ROSE, margin: 0, isTextBox: true });
-    s.addText("TTG ≥ 3", { x: 0.8, y: 2.05, w: 3.3, h: 0.8, fontFace: HEAD, fontSize: 44, bold: true, color: WHITE, margin: 0, isTextBox: true });
-    s.addText("TIMI thrombus grade 3 or more: a clot longer than half the vessel diameter, in the patients most at risk of distal embolisation.", {
-      x: 0.8, y: 2.95, w: 3.3, h: 0.9, fontFace: BODY, fontSize: 12.5, color: "C9CFDA", margin: 0, valign: "top", isTextBox: true,
+    const s = slide("Exclusion criteria",
+      "Exclusion criteria as listed on ClinicalTrials.gov (NCT04969471). Most exclude anatomy where a retriever is hard to deliver safely, or situations that would confound the infarct-size endpoint.");
+    const items = [
+      "Unconscious patient",
+      "Infarct-related artery < 2.5 mm (visual estimate)",
+      "Severe calcification or extreme tortuosity at or proximal to the culprit lesion",
+      "Stent thrombosis as the culprit lesion",
+      "Previous MI in the same territory",
+      "Women of child-bearing potential",
+      "Participation in another interventional trial",
+    ];
+    const hs = [0.4, 0.4, 0.62, 0.4, 0.4, 0.4, 0.4];
+    let y = 1.2;
+    items.forEach((t, i) => {
+      dot(s, 0.5, y, 0.38, GREY, I.times, true);
+      s.addText(t, { x: 1.1, y: y + 0.06, w: 4.9, h: hs[i], fontFace: BODY, fontSize: 14, color: INK, valign: "top", margin: 0, isTextBox: true });
+      y += hs[i] + 0.1;
     });
-    s.addText("Why enrich? Benefit is most plausible where there is the most clot to embolise.", {
-      x: 0.8, y: 4.0, w: 3.3, h: 0.6, fontFace: HEAD, italic: true, fontSize: 12, color: ROSE, margin: 0, valign: "top", isTextBox: true,
-    });
-    // Right endpoints
+    panelBox(s, 6.4, 1.2, 3.1, 3.7);
+    s.addImage({ data: I.info, x: 6.65, y: 1.42, w: 0.38, h: 0.38 });
+    s.addText("Why these exclusions?", { x: 7.15, y: 1.42, w: 2.3, h: 0.38, fontFace: HEAD, fontSize: 15, bold: true, color: MAROON, valign: "middle", margin: 0, isTextBox: true });
+    bullets(s, [
+      "Small, calcified or tortuous vessels: hard to deliver a retriever safely",
+      "Stent thrombosis and prior MI in the same territory would confound infarct size",
+    ], { x: 6.65, y: 2.0, w: 2.65, h: 2.7, fontSize: 13 });
+  }
+
+  // ═════════ 8. Endpoints ═════════
+  {
+    const s = slide("Endpoints",
+      "The primary endpoint is enzymatic infarct size (CK-MB area under the curve). The key secondary endpoint is infarct size on cardiac MRI at day 3. Safety was assessed at 30 days.");
     const eps = [
-      [CRIMSON, I.flask, "Primary efficacy", "Infarct size by CK-MB area under the curve"],
-      [TEAL, I.mri, "Key secondary", "Infarct size on cardiac MRI (% LV mass) at day 3"],
-      [INK, I.shield, "Safety", "Death, stroke and MACE at 30 days"],
+      [I.flask, "Primary", "Infarct size by CK-MB area under the curve"],
+      [I.mri, "Secondary", "Infarct size on cardiac MRI (% of LV mass) at day 3"],
+      [I.shield, "Safety", "Death, stroke and MACE at 30 days"],
     ];
-    eps.forEach(([c, ic, t, d], i) => {
-      const y = 1.5 + i * 1.12;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 4.8, y, w: 4.7, h: 0.95, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.1 });
-      circleIcon(s, 5.0, y + 0.18, 0.6, c, ic);
-      s.addText(t.toUpperCase(), { x: 5.8, y: y + 0.14, w: 3.5, h: 0.28, fontFace: BODY, fontSize: 10, bold: true, charSpacing: 3, color: c === INK ? MUTED : c, margin: 0, isTextBox: true });
-      s.addText(d, { x: 5.8, y: y + 0.42, w: 3.5, h: 0.45, fontFace: BODY, fontSize: 13, color: TEXT, margin: 0, valign: "top", isTextBox: true });
+    eps.forEach(([ic, t, d], i) => {
+      const x = 0.5 + i * 3.07;
+      panelBox(s, x, 1.3, 2.85, 2.75);
+      s.addShape(pres.shapes.OVAL, { x: x + 0.3, y: 1.6, w: 0.8, h: 0.8, fill: { color: WHITE }, line: { color: WHITE } });
+      s.addImage({ data: ic, x: x + 0.5, y: 1.8, w: 0.4, h: 0.4 });
+      s.addText(t, { x: x + 0.3, y: 2.65, w: 2.3, h: 0.45, fontFace: HEAD, fontSize: 20, bold: true, color: MAROON, margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 0.3, y: 3.15, w: 2.3, h: 1.2, fontFace: BODY, fontSize: 14, color: INK, valign: "top", margin: 0, isTextBox: true });
     });
-    s.addNotes(
-      "TIMI thrombus grade 3 means a definite thrombus longer than half the vessel diameter; this is the population in which thrombectomy has the most to offer. " +
-      "The primary endpoint is a physiological one — enzymatic infarct size — backed by CMR infarct size as a secondary, with 30-day safety events."
-    );
   }
 
-  // ─────────────── 6. Primary result (dark) ───────────────
+  // ═════════ 9. Primary result ═════════
   {
-    const s = pres.addSlide();
-    frame(s, true);
-    header(s, "Primary endpoint · met", "Infarct size cut by about a quarter", true);
-    s.addText("−26%", { x: 0.5, y: 1.6, w: 4.2, h: 1.3, fontFace: HEAD, fontSize: 80, bold: true, color: CRIMSON, margin: 0, isTextBox: true });
+    const s = slide("Primary endpoint: met",
+      "Enzymatic infarct size by CK-MB AUC was about 26% lower with enVast (P = 0.001). The chart shows the relative effect with control set to 100; absolute values are in the primary presentation.");
+    s.addText("26%", { x: 0.5, y: 1.35, w: 4, h: 1.2, fontFace: HEAD, fontSize: 80, bold: true, color: MAROON, margin: 0, isTextBox: true });
     s.addText("relative reduction in infarct size (CK-MB AUC) with enVast versus standard PCI", {
-      x: 0.5, y: 2.95, w: 4.0, h: 0.7, fontFace: BODY, fontSize: 14, color: WHITE, margin: 0, valign: "top", isTextBox: true,
+      x: 0.5, y: 2.6, w: 3.9, h: 0.75, fontFace: BODY, fontSize: 15, color: INK, valign: "top", margin: 0, isTextBox: true,
     });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 3.85, w: 1.7, h: 0.5, fill: { color: CARD }, line: { color: SLATE, width: 0.75 }, rectRadius: 0.25 });
-    s.addText("P = 0.001", { x: 0.5, y: 3.85, w: 1.7, h: 0.5, fontFace: BODY, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true });
-    s.addChart(pres.charts.BAR, [{ name: "Infarct size index", labels: ["Standard PCI", "enVast + PCI"], values: [100, 74] }], {
-      x: 5.0, y: 1.45, w: 4.5, h: 3.4, barDir: "col", barGapWidthPct: 70,
-      chartColors: [SLATE, TEAL], plotArea: { fill: { color: INK } },
-      showTitle: true, title: "Infarct size, indexed to control = 100", titleColor: "C9CFDA", titleFontSize: 11, titleFontFace: BODY,
-      showValue: true, dataLabelPosition: "outEnd", dataLabelColor: WHITE, dataLabelFontSize: 14, dataLabelFontBold: true,
-      catAxisLabelColor: "C9CFDA", catAxisLabelFontSize: 12, catAxisLabelFontFace: BODY, catAxisLineShow: false,
-      valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 115,
-      valGridLine: { style: "none" }, catGridLine: { style: "none" }, showLegend: false,
+    panelBox(s, 0.5, 3.6, 1.8, 0.55);
+    s.addText("P = 0.001", { x: 0.5, y: 3.6, w: 1.8, h: 0.55, fontFace: BODY, fontSize: 16, bold: true, color: MAROON, align: "center", valign: "middle", margin: 0, isTextBox: true });
+    s.addChart(pres.charts.BAR, [{ name: "Infarct size", labels: ["Standard PCI", "enVast + PCI"], values: [100, 74] }], {
+      x: 5.0, y: 1.2, w: 4.5, h: 3.7, barDir: "col", barGapWidthPct: 80, chartColors: [GREY, MAROON],
+      showTitle: true, title: "Infarct size (control = 100)", titleColor: MUTED, titleFontSize: 11, titleFontFace: BODY,
+      showValue: true, dataLabelPosition: "outEnd", dataLabelColor: INK, dataLabelFontSize: 14, dataLabelFontBold: true,
+      catAxisLabelColor: INK, catAxisLabelFontSize: 12, catAxisLabelFontFace: BODY,
+      valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 115, valGridLine: { style: "none" }, catGridLine: { style: "none" }, showLegend: false,
     });
-    s.addNotes(
-      "The trial met its primary endpoint: enzymatic infarct size by CK-MB area under the curve was about 26% lower with enVast (P = 0.001). " +
-      "The chart shows the relative effect indexed to control; absolute CK-MB values are in the primary presentation/publication."
-    );
   }
 
-  // ─────────────── 7. Imaging concordance ───────────────
+  // ═════════ 10. Secondary: CMR ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Secondary endpoint", "Biomarker and MRI tell the same story", false);
-    const cards = [
-      [I.flask, CRIMSON, "CK-MB AUC", "Primary endpoint", 26, "P = 0.001 · significant"],
-      [I.mri, TEAL, "Cardiac MRI, day 3", "Infarct size, % LV mass", 25, "Directionally consistent trend"],
+    const s = slide("Secondary endpoint: cardiac MRI",
+      "Cardiac MRI at day 3 showed about a 25% relative reduction in infarct size as a percentage of LV mass. It was a positive trend rather than a formally significant result, but it agrees with the CK-MB finding.");
+    const rows = [
+      ["CK-MB AUC (primary)", 26, "Significant, P = 0.001"],
+      ["Cardiac MRI at day 3 (secondary)", 25, "Trend in the same direction"],
     ];
-    cards.forEach(([ic, c, t, sub, pct, note], i) => {
-      const x = 0.5 + i * 4.75;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.55, w: 4.25, h: 3.2, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
-      circleIcon(s, x + 0.3, 1.8, 0.62, c, ic);
-      s.addText(t, { x: x + 1.1, y: 1.8, w: 3.0, h: 0.32, fontFace: HEAD, fontSize: 16, bold: true, color: TEXT, margin: 0, isTextBox: true });
-      s.addText(sub, { x: x + 1.1, y: 2.12, w: 3.0, h: 0.3, fontFace: BODY, fontSize: 11.5, color: MUTED, margin: 0, isTextBox: true });
-      s.addText(`−${pct}%`, { x: x + 0.3, y: 2.6, w: 3.6, h: 0.85, fontFace: HEAD, fontSize: 48, bold: true, color: c, margin: 0, isTextBox: true });
-      // relative bars
-      const bw = 3.65, bx = x + 0.3;
-      s.addText("Standard PCI", { x: bx, y: 3.5, w: 1.5, h: 0.22, fontFace: BODY, fontSize: 9.5, color: MUTED, margin: 0, isTextBox: true });
-      s.addShape(pres.shapes.RECTANGLE, { x: bx, y: 3.73, w: bw, h: 0.18, fill: { color: "C7CCD6" }, line: { color: "C7CCD6" } });
-      s.addText("enVast + PCI", { x: bx, y: 3.97, w: 1.5, h: 0.22, fontFace: BODY, fontSize: 9.5, color: MUTED, margin: 0, isTextBox: true });
-      s.addShape(pres.shapes.RECTANGLE, { x: bx, y: 4.2, w: bw * (100 - pct) / 100, h: 0.18, fill: { color: c }, line: { color: c } });
-      s.addText(note, { x: bx, y: 4.42, w: bw, h: 0.25, fontFace: BODY, fontSize: 10.5, italic: true, color: TEXT, margin: 0, isTextBox: true });
+    rows.forEach(([t, pct, note], i) => {
+      const y = 1.35 + i * 1.65;
+      s.addText(t, { x: 0.5, y, w: 6, h: 0.4, fontFace: HEAD, fontSize: 17, bold: true, color: INK, margin: 0, isTextBox: true });
+      s.addText(`${pct}% smaller`, { x: 6.8, y, w: 2.7, h: 0.4, fontFace: HEAD, fontSize: 20, bold: true, color: MAROON, align: "right", margin: 0, isTextBox: true });
+      s.addText("Standard PCI", { x: 0.5, y: y + 0.5, w: 1.4, h: 0.3, fontFace: BODY, fontSize: 11, color: MUTED, valign: "middle", margin: 0, isTextBox: true });
+      s.addShape(pres.shapes.RECTANGLE, { x: 1.95, y: y + 0.52, w: 7.55, h: 0.26, fill: { color: GREY }, line: { color: GREY } });
+      s.addText("enVast + PCI", { x: 0.5, y: y + 0.88, w: 1.4, h: 0.3, fontFace: BODY, fontSize: 11, color: MUTED, valign: "middle", margin: 0, isTextBox: true });
+      s.addShape(pres.shapes.RECTANGLE, { x: 1.95, y: y + 0.9, w: 7.55 * (100 - pct) / 100, h: 0.26, fill: { color: MAROON }, line: { color: MAROON } });
+      s.addText(note, { x: 1.95 + 7.55 * (100 - pct) / 100 + 0.15, y: y + 0.88, w: 1.8, h: 0.3, fontFace: BODY, fontSize: 11, italic: true, color: INK, valign: "middle", margin: 0, isTextBox: true });
     });
-    s.addText("≈", { x: 4.75, y: 2.6, w: 0.5, h: 0.8, fontFace: HEAD, fontSize: 36, bold: true, color: MUTED, align: "center", valign: "middle", margin: 0, isTextBox: true });
-    s.addNotes(
-      "CMR at day 3 showed about a 25% relative reduction in infarct size as a percentage of LV mass — a positive trend rather than a formally significant result, " +
-      "but concordant with the biomarker finding, which supports a real biological effect."
-    );
+    s.addText("Two different measures, a blood test and imaging, point the same way.", {
+      x: 0.5, y: 4.6, w: 9, h: 0.35, fontFace: BODY, fontSize: 13, italic: true, color: MUTED, margin: 0, isTextBox: true,
+    });
   }
 
-  // ─────────────── 8. Safety ───────────────
+  // ═════════ 11. Safety ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "30-day safety", "No strokes, no deaths in the enVast arm", false);
+    const s = slide("Safety at 30 days",
+      "At 30 days: stroke 0% vs 1.3%, death 0% vs 2.6%, MACE 1.3% vs 3.8% (enVast vs control). Reassuring given the stroke signal with aspiration in TOTAL, but the event numbers are very small.");
     s.addChart(pres.charts.BAR, [
       { name: "enVast + PCI", labels: ["Stroke", "Death", "MACE"], values: [0, 0, 1.3] },
       { name: "Standard PCI", labels: ["Stroke", "Death", "MACE"], values: [1.3, 2.6, 3.8] },
     ], {
-      x: 0.4, y: 1.45, w: 5.6, h: 3.45, barDir: "col", barGrouping: "clustered", barGapWidthPct: 60,
-      chartColors: [TEAL, SLATE],
-      showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: '0.0"%"', dataLabelColor: TEXT, dataLabelFontSize: 12, dataLabelFontBold: true,
-      catAxisLabelColor: TEXT, catAxisLabelFontSize: 13, catAxisLabelFontFace: BODY,
-      valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 4.6,
-      valGridLine: { style: "none" }, catGridLine: { style: "none" },
-      showLegend: true, legendPos: "t", legendFontSize: 11, legendColor: TEXT, legendFontFace: BODY,
-      showTitle: true, title: "Event rate at 30 days (%)", titleColor: MUTED, titleFontSize: 11, titleFontFace: BODY,
+      x: 0.4, y: 1.15, w: 5.8, h: 3.8, barDir: "col", barGrouping: "clustered", barGapWidthPct: 60, chartColors: [MAROON, GREY],
+      showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: '0.0"%"', dataLabelColor: INK, dataLabelFontSize: 12, dataLabelFontBold: true,
+      catAxisLabelColor: INK, catAxisLabelFontSize: 13, catAxisLabelFontFace: BODY,
+      valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 4.6, valGridLine: { style: "none" }, catGridLine: { style: "none" },
+      showLegend: true, legendPos: "t", legendFontSize: 11, legendColor: INK, legendFontFace: BODY,
     });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 6.4, y: 1.55, w: 3.1, h: 1.55, fill: { color: TEAL_LT }, line: { color: TEAL_LT }, rectRadius: 0.12 });
-    circleIcon(s, 6.6, 1.75, 0.5, TEAL, I.check);
-    s.addText("Why it matters", { x: 7.25, y: 1.8, w: 2.2, h: 0.4, fontFace: HEAD, fontSize: 14, bold: true, color: TEXT, valign: "middle", margin: 0, isTextBox: true });
-    s.addText("Aspiration in TOTAL carried a stroke signal. NATURE saw none with enVast.", {
-      x: 6.6, y: 2.35, w: 2.75, h: 0.7, fontFace: BODY, fontSize: 11.5, color: TEXT, margin: 0, valign: "top", isTextBox: true,
-    });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 6.4, y: 3.3, w: 3.1, h: 1.55, fill: { color: "FDECEC" }, line: { color: "FDECEC" }, rectRadius: 0.12 });
-    circleIcon(s, 6.6, 3.5, 0.5, CRIMSON, I.warn);
-    s.addText("Read with care", { x: 7.25, y: 3.55, w: 2.2, h: 0.4, fontFace: HEAD, fontSize: 14, bold: true, color: TEXT, valign: "middle", margin: 0, isTextBox: true });
-    s.addText("Only a handful of events; the trial was not powered for clinical outcomes.", {
-      x: 6.6, y: 4.1, w: 2.75, h: 0.7, fontFace: BODY, fontSize: 11.5, color: TEXT, margin: 0, valign: "top", isTextBox: true,
-    });
-    s.addNotes(
-      "At 30 days: stroke 0% vs 1.3%, death 0% vs 2.6%, MACE 1.3% vs 3.8% (enVast vs control). " +
-      "Reassuring given the stroke concern with aspiration in TOTAL — but these are very small numbers of events and should be treated as hypothesis-generating."
-    );
+    panelBox(s, 6.5, 1.3, 3.0, 3.5);
+    s.addText("No strokes and no deaths with enVast", { x: 6.75, y: 1.5, w: 2.55, h: 0.8, fontFace: HEAD, fontSize: 16, bold: true, color: MAROON, valign: "top", margin: 0, isTextBox: true });
+    bullets(s, [
+      "Important because aspiration in TOTAL increased stroke",
+      "Very few events overall",
+      "The trial was not powered for clinical outcomes",
+    ], { x: 6.75, y: 2.4, w: 2.55, h: 2.3, fontSize: 13 });
   }
 
-  // ─────────────── 9. Critical appraisal ───────────────
+  // ═════════ 12. Strengths ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Critical appraisal", "Strong signal, early evidence", false);
-    const cols = [
-      [TEAL, I.check, "Strengths", [
-        "Randomised, multicentre design",
-        "Population enriched for large thrombus — where benefit is most plausible",
-        "Biomarker and CMR results agree",
-        "No stroke or death signal at 30 days",
-      ]],
-      [CRIMSON, I.warn, "Limitations", [
-        "Modest sample (n = 154)",
-        "Surrogate primary endpoint, not hard outcomes",
-        "Operators cannot be blinded to device use",
-        "CMR effect a trend; industry-sponsored",
-      ]],
+    const s = slide("Strengths",
+      "Randomised multicentre design, a population chosen where benefit is plausible, agreement between biomarker and MRI, and no early safety signal.");
+    const items = [
+      ["Randomised, multicentre", "11 centres, 1:1 allocation"],
+      ["Right population", "Only patients with a large thrombus"],
+      ["Consistent results", "CK-MB and cardiac MRI agree"],
+      ["Safe early course", "No stroke or death with enVast at 30 days"],
     ];
-    cols.forEach(([c, ic, t, items], i) => {
-      const x = 0.5 + i * 4.6;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.5, w: 4.4, h: 2.75, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
-      circleIcon(s, x + 0.3, 1.72, 0.55, c, ic);
-      s.addText(t, { x: x + 1.0, y: 1.72, w: 3.2, h: 0.55, fontFace: HEAD, fontSize: 19, bold: true, color: TEXT, valign: "middle", margin: 0, isTextBox: true });
-      s.addText(items.map((it, j) => ({ text: it, options: { bullet: true, breakLine: j < items.length - 1 } })), {
-        x: x + 0.3, y: 2.45, w: 3.9, h: 1.7, fontFace: BODY, fontSize: 13, color: TEXT, paraSpaceAfter: 8, valign: "top", margin: 0, isTextBox: true,
-      });
+    items.forEach(([t, d], i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 0.5 + col * 4.6, y = 1.35 + row * 1.65;
+      panelBox(s, x, y, 4.4, 1.4);
+      dot(s, x + 0.3, y + 0.3, 0.45, MAROON, I.check, true);
+      s.addText(t, { x: x + 0.95, y: y + 0.3, w: 3.3, h: 0.45, fontFace: HEAD, fontSize: 16, bold: true, color: INK, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 0.95, y: y + 0.8, w: 3.3, h: 0.6, fontFace: BODY, fontSize: 13, color: MUTED, valign: "top", margin: 0, isTextBox: true });
     });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 4.4, w: 9.0, h: 0.5, fill: { color: INK }, line: { color: INK }, rectRadius: 0.25 });
-    s.addText([
-      { text: "VERDICT   ", options: { bold: true, color: ROSE, charSpacing: 3 } },
-      { text: "Confirms the hypothesis on infarct size; generates the hypothesis for clinical outcomes.", options: { color: WHITE } },
-    ], { x: 0.8, y: 4.4, w: 8.5, h: 0.5, fontFace: BODY, fontSize: 12.5, valign: "middle", margin: 0, isTextBox: true });
-    s.addNotes(
-      "Strengths: randomisation, a targeted population, and concordant endpoints. " +
-      "Limitations: small, surrogate primary endpoint, inherent lack of operator blinding, CMR only a trend, and sponsor involvement. " +
-      "The next step must be an adequately powered trial with clinical endpoints."
-    );
   }
 
-  // ─────────────── 10. Take-home (dark) ───────────────
+  // ═════════ 13. Limitations ═════════
   {
-    const s = pres.addSlide();
-    frame(s, true);
-    s.addImage({ data: ECG_RED, x: -0.2, y: 3.95, w: 10.4, h: 1.0, transparency: 70 });
-    header(s, "Key findings", "Three things NATURE showed", true);
+    const s = slide("Limitations",
+      "Small sample, surrogate primary endpoint, operators unavoidably aware of device use, the MRI result only a trend, and industry sponsorship.");
+    const items = [
+      ["Small trial", "Only 154 patients"],
+      ["Surrogate endpoint", "Infarct size, not death or heart failure"],
+      ["Operators not blinded", "Device use cannot be hidden"],
+      ["MRI only a trend", "Industry-funded; needs independent confirmation"],
+    ];
+    items.forEach(([t, d], i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 0.5 + col * 4.6, y = 1.35 + row * 1.65;
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w: 4.4, h: 1.4, fill: { color: WHITE }, line: { color: LINE, width: 1.25 }, rectRadius: 0.08 });
+      dot(s, x + 0.3, y + 0.3, 0.45, GREY, String(i + 1));
+      s.addText(t, { x: x + 0.95, y: y + 0.3, w: 3.3, h: 0.45, fontFace: HEAD, fontSize: 16, bold: true, color: INK, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 0.95, y: y + 0.8, w: 3.3, h: 0.6, fontFace: BODY, fontSize: 13, color: MUTED, valign: "top", margin: 0, isTextBox: true });
+    });
+  }
+
+  // ═════════ 14. Conclusion ═════════
+  {
+    const s = slide("Conclusion",
+      "NATURE met its superiority hypothesis on infarct size, with reassuring 30-day safety. Because it is small and uses a surrogate endpoint, it should not yet change routine practice; an outcomes trial is the next step.");
+    panelBox(s, 0.5, 1.2, 9, 1.5, MAROON);
+    s.addText("In STEMI with a large thrombus, enVast thrombectomy before PCI was superior to standard PCI in reducing infarct size, with no early safety concern.", {
+      x: 0.8, y: 1.2, w: 8.4, h: 1.5, fontFace: HEAD, fontSize: 19, italic: true, color: WHITE, valign: "middle", margin: 0, isTextBox: true,
+    });
     const pts = [
-      ["Superior on infarct size", "enVast before PCI cut enzymatic infarct size by ~26% in large-thrombus STEMI (P = 0.001)."],
-      ["Consistent and safe", "CMR pointed the same way; no strokes or deaths with enVast at 30 days."],
-      ["Right patient, right time", "Benefit shown where it is most plausible: a large thrombus, treated within 8 hours of symptom onset."],
+      ["Today", "Promising for selected large-thrombus cases, but not yet routine. Guidelines are unchanged."],
+      ["Next", "A larger trial with hard outcomes: death, heart failure and stroke."],
     ];
     pts.forEach(([t, d], i) => {
-      const x = 0.5 + i * 3.1;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.55, w: 2.85, h: 2.4, fill: { color: CARD }, line: { color: CARD }, rectRadius: 0.12 });
-      s.addText(String(i + 1).padStart(2, "0"), { x: x + 0.25, y: 1.7, w: 1, h: 0.55, fontFace: HEAD, fontSize: 28, bold: true, color: CRIMSON, margin: 0, isTextBox: true });
-      s.addText(t, { x: x + 0.25, y: 2.3, w: 2.4, h: 0.4, fontFace: HEAD, fontSize: 15, bold: true, color: WHITE, margin: 0, isTextBox: true });
-      s.addText(d, { x: x + 0.25, y: 2.75, w: 2.4, h: 1.1, fontFace: BODY, fontSize: 12, color: "C9CFDA", margin: 0, valign: "top", isTextBox: true });
-    });
-    s.addNotes(
-      "Three findings: a significant reduction in enzymatic infarct size, a concordant MRI signal with no early safety penalty, " +
-      "and a result that applies to a selected population — large thrombus, early presentation."
-    );
-  }
-
-  // ─────────────── Conclusion (dark) ───────────────
-  {
-    const s = pres.addSlide();
-    frame(s, true);
-    s.addImage({ data: ECG_RED, x: -0.2, y: 2.05, w: 10.4, h: 0.6, transparency: 65 });
-    s.addText("CONCLUSION", {
-      x: 0.5, y: 0.35, w: 9, h: 0.3, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 4, color: CRIMSON, margin: 0, isTextBox: true,
-    });
-    s.addImage({ data: I.quote, x: 0.5, y: 0.85, w: 0.45, h: 0.45 });
-    s.addText([
-      { text: "In STEMI with a large thrombus burden, enVast-assisted thrombectomy before PCI was ", options: { color: WHITE } },
-      { text: "superior to standard PCI", options: { color: CRIMSON, bold: true } },
-      { text: " in reducing infarct size, with no early safety penalty.", options: { color: WHITE } },
-    ], { x: 1.15, y: 0.8, w: 8.3, h: 1.6, fontFace: HEAD, italic: true, fontSize: 24, valign: "top", margin: 0, isTextBox: true });
-    const cols = [
-      [I.hospital, "For practice today", "A promising option for selected large-thrombus cases, not yet a routine strategy. Guidelines stay unchanged until outcome data arrive."],
-      [I.flask, "For research next", "An adequately powered randomised trial with hard clinical endpoints: death, heart failure and stroke."],
-    ];
-    cols.forEach(([ic, t, d], i) => {
       const x = 0.5 + i * 4.6;
-      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 2.75, w: 4.4, h: 1.95, fill: { color: CARD }, line: { color: CARD }, rectRadius: 0.12 });
-      circleIcon(s, x + 0.25, 2.95, 0.5, i === 0 ? TEAL : CRIMSON, i === 0 ? I.check : I.flask);
-      s.addText(t, { x: x + 0.9, y: 2.95, w: 3.3, h: 0.5, fontFace: HEAD, fontSize: 16, bold: true, color: WHITE, valign: "middle", margin: 0, isTextBox: true });
-      s.addText(d, { x: x + 0.25, y: 3.6, w: 3.95, h: 1.0, fontFace: BODY, fontSize: 12.5, color: "C9CFDA", valign: "top", margin: 0, isTextBox: true });
+      s.addText(t, { x, y: 3.0, w: 4.4, h: 0.4, fontFace: HEAD, fontSize: 17, bold: true, color: MAROON, margin: 0, isTextBox: true });
+      s.addText(d, { x, y: 3.45, w: 4.3, h: 1.2, fontFace: BODY, fontSize: 14, color: INK, valign: "top", margin: 0, isTextBox: true });
     });
-    s.addNotes(
-      "Conclusion: NATURE met its superiority hypothesis on infarct size. enVast-assisted thrombectomy before PCI reduced infarct size in large-thrombus STEMI, and 30-day safety was reassuring. " +
-      "Because the trial was small and used a surrogate endpoint, it should not yet change routine practice; the next step is an outcomes trial."
-    );
   }
 
-  // ─────────────── 11. References ───────────────
+  // ═════════ 15. Take-home ═════════
   {
-    const s = pres.addSlide();
-    frame(s, false);
-    header(s, "Sources", "References", false);
-    circleIcon(s, 0.5, 1.55, 0.55, INK, I.heartW);
+    const s = slide("Take-home for our cath lab",
+      "Practical messages for discussion: grade thrombus burden, do not use routine aspiration, and follow the evidence as outcome trials report.");
+    const pts = [
+      "Grade the thrombus (TIMI thrombus grade) in every STEMI",
+      "Routine manual aspiration is still not recommended",
+      "Stent-retriever thrombectomy is promising for large thrombus, but awaits outcome data",
+    ];
+    pts.forEach((t, i) => {
+      const y = 1.35 + i * 1.1;
+      s.addText(String(i + 1).padStart(2, "0"), { x: 0.5, y, w: 1.0, h: 0.8, fontFace: HEAD, fontSize: 36, bold: true, color: MAROON, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(t, { x: 1.6, y, w: 7.9, h: 0.8, fontFace: BODY, fontSize: 17, color: INK, valign: "middle", margin: 0, isTextBox: true });
+    });
+  }
+
+  // ═════════ 16. References ═════════
+  {
+    const s = slide("References", "NATURE figures are from the ESC 2026 late-breaking presentation and press reports; check the peer-reviewed publication for final values.");
     const refs = [
-      "Valgimigli M. NATURE: enVast-assisted mechanical thrombectomy in large-thrombus STEMI. Late-Breaking Clinical Trial, ESC Congress 2026, Munich.",
-      "Landi A, et al. The use of mechanical thrombectomy in patients with STEMI and large thrombus burden: design and rationale of the NATURE trial. Cardiovasc Revasc Med. 2026.",
-      "ClinicalTrials.gov NCT04969471 — NATURE (enVast as an adjunct to PPCI in subjects presenting with STEMI).",
-      "Fröbert O, et al. Thrombus aspiration during ST-segment elevation myocardial infarction (TASTE). N Engl J Med. 2013.",
-      "Jolly SS, et al. Randomized trial of primary PCI with or without routine manual thrombectomy (TOTAL). N Engl J Med. 2015.",
+      "Valgimigli M. NATURE trial. Late-Breaking Clinical Trial, ESC Congress 2026, Munich.",
+      "Landi A, et al. Mechanical thrombectomy in STEMI with large thrombus burden: design and rationale of the NATURE trial. Cardiovasc Revasc Med. 2026.",
+      "ClinicalTrials.gov NCT04969471: NATURE (enVast as an adjunct to PPCI in STEMI).",
+      "Fröbert O, et al. Thrombus aspiration during STEMI (TASTE). N Engl J Med. 2013.",
+      "Jolly SS, et al. Primary PCI with or without routine manual thrombectomy (TOTAL). N Engl J Med. 2015.",
       "Byrne RA, et al. 2023 ESC Guidelines for the management of acute coronary syndromes. Eur Heart J. 2023.",
     ];
     s.addText(refs.map((r, i) => ({ text: r, options: { bullet: { type: "number" }, breakLine: i < refs.length - 1 } })), {
-      x: 1.35, y: 1.5, w: 8.15, h: 3.3, fontFace: BODY, fontSize: 12, color: TEXT, paraSpaceAfter: 7, valign: "top", margin: 0, isTextBox: true,
+      x: 0.5, y: 1.2, w: 9, h: 3.7, fontFace: BODY, fontSize: 13, color: INK, paraSpaceAfter: 8, valign: "top", margin: 0, isTextBox: true,
     });
-    s.addNotes("Figures for NATURE are taken from the ESC 2026 late-breaking presentation and sponsor/press reports; check the peer-reviewed publication for final values.");
+  }
+
+  // ═════════ 17. Thank you ═════════
+  {
+    n++;
+    const s = pres.addSlide();
+    s.background = { color: MAROON };
+    s.addText("Thank you", { x: 0.5, y: 1.55, w: 9, h: 1.1, fontFace: HEAD, fontSize: 60, bold: true, color: WHITE, align: "center", margin: 0, isTextBox: true });
+    s.addText("Questions and discussion", { x: 0.5, y: 2.7, w: 9, h: 0.5, fontFace: BODY, fontSize: 20, color: "F3C9D5", align: "center", margin: 0, isTextBox: true });
+    s.addText(`${PRESENTER}  ·  ${ROLE}  ·  ${PLACE}`, { x: 0.5, y: 4.4, w: 9, h: 0.4, fontFace: BODY, fontSize: 13, color: WHITE, align: "center", margin: 0, isTextBox: true });
   }
 
   await pres.writeFile({ fileName: OUT });
-  console.log("wrote", OUT);
+  console.log("wrote", OUT, "slides:", n);
 })();
