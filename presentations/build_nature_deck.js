@@ -79,12 +79,14 @@ async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
     target: await icon(fa.FaCrosshairs, WHITE),
     link: await icon(fa.FaLink, WHITE),
     undo: await icon(fa.FaUndoAlt, WHITE),
+    times: await icon(fa.FaTimes, WHITE),
+    quote: await icon(fa.FaQuoteLeft, CRIMSON),
   };
   const ECG_RED = await ecg(CRIMSON, 2400, 300, 4, 7);
   const ECG_SMALL = await ecg(CRIMSON, 600, 120, 1, 8);
 
   let n = 0;
-  const TOTAL = 11;
+  const TOTAL = 13;
 
   function frame(slide, dark) {
     n++;
@@ -271,21 +273,60 @@ async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
     );
   }
 
-  // ─────────────── 5. Population & endpoints ───────────────
+  // ─────────────── 5. Eligibility ───────────────
   {
     const s = pres.addSlide();
     frame(s, false);
-    header(s, "Population & endpoints", "Enriched for clot; judged on infarct size", false);
-    // Left inclusion card (dark)
+    header(s, "Eligibility", "Inclusion and exclusion criteria", false);
+    const cols = [
+      [TEAL, TEAL_LT, I.check, "Inclusion", [
+        "Age ≥ 18 years",
+        "Chest pain > 20 min with ST elevation ≥ 1 mm in ≥ 2 contiguous leads, or infero-lateral MI with ST depression ≥ 1 mm in ≥ 2 of V1–V3 and a positive terminal T wave",
+        "TIMI thrombus grade ≥ 3 in the infarct-related artery (re-confirmed after wiring if TIMI 0 flow)",
+        "Intervention started within 8 h of symptom onset",
+        "Informed consent before the procedure",
+      ]],
+      [CRIMSON, "FDECEC", I.times, "Exclusion", [
+        "Unconscious patient",
+        "Infarct-related artery < 2.5 mm (visual estimate)",
+        "Severe calcification or extreme tortuosity at or proximal to the culprit lesion",
+        "Stent thrombosis as the culprit lesion",
+        "Previous MI in the same territory",
+        "Women of child-bearing potential",
+        "Participation in another interventional trial",
+      ]],
+    ];
+    cols.forEach(([c, tint, ic, t, items], i) => {
+      const x = 0.5 + i * 4.6;
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.45, w: 4.4, h: 3.45, fill: { color: PAPER }, line: { color: PAPER }, rectRadius: 0.12 });
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x + 0.2, y: 1.62, w: 4.0, h: 0.55, fill: { color: tint }, line: { color: tint }, rectRadius: 0.1 });
+      circleIcon(s, x + 0.32, 1.68, 0.43, c, ic);
+      s.addText(t, { x: x + 0.9, y: 1.62, w: 2.2, h: 0.55, fontFace: HEAD, fontSize: 17, bold: true, color: TEXT, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(`${items.length} criteria`, { x: x + 2.9, y: 1.62, w: 1.15, h: 0.55, fontFace: BODY, fontSize: 10, bold: true, charSpacing: 2, color: c, align: "right", valign: "middle", margin: 0, isTextBox: true });
+      s.addText(items.map((it, j) => ({ text: it, options: { bullet: { indent: 14 }, breakLine: j < items.length - 1 } })), {
+        x: x + 0.3, y: 2.32, w: 3.85, h: 2.45, fontFace: BODY, fontSize: 11.5, color: TEXT, paraSpaceAfter: 5, valign: "top", margin: 0, isTextBox: true,
+      });
+    });
+    s.addNotes(
+      "Eligibility as listed on ClinicalTrials.gov (NCT04969471). The key enrichment criterion is a TIMI thrombus grade of 3 or more; in occluded vessels (grade 5, TIMI 0 flow) the grade had to be re-confirmed after wiring. " +
+      "Patients had to be treated within 8 hours of symptom onset. Exclusions remove small, heavily calcified or tortuous vessels where a retriever is hard to deliver, stent thrombosis, prior infarction in the same territory and unconscious patients."
+    );
+  }
+
+  // ─────────────── 6. Endpoints ───────────────
+  {
+    const s = pres.addSlide();
+    frame(s, false);
+    header(s, "Endpoints", "Enriched for clot; judged on infarct size", false);
+    // Left enrichment card (dark)
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 1.5, w: 3.9, h: 3.3, fill: { color: INK }, line: { color: INK }, rectRadius: 0.12 });
-    s.addText("KEY INCLUSION", { x: 0.8, y: 1.7, w: 3.3, h: 0.3, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 4, color: ROSE, margin: 0, isTextBox: true });
-    s.addText([
-      { text: "STEMI undergoing primary PCI", options: { bullet: true, breakLine: true } },
-      { text: "TIMI thrombus grade ≥ 3 in the infarct-related artery", options: { bullet: true, breakLine: true } },
-      { text: "If grade 5 (TIMI 0 flow), grade ≥ 3 re-confirmed after wiring", options: { bullet: true } },
-    ], { x: 0.8, y: 2.1, w: 3.4, h: 2.5, fontFace: BODY, fontSize: 13.5, color: WHITE, paraSpaceAfter: 10, valign: "top", margin: 0, isTextBox: true });
+    s.addText("ENRICHED FOR CLOT", { x: 0.8, y: 1.7, w: 3.3, h: 0.3, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 4, color: ROSE, margin: 0, isTextBox: true });
+    s.addText("TTG ≥ 3", { x: 0.8, y: 2.05, w: 3.3, h: 0.8, fontFace: HEAD, fontSize: 44, bold: true, color: WHITE, margin: 0, isTextBox: true });
+    s.addText("TIMI thrombus grade 3 or more: a clot longer than half the vessel diameter, in the patients most at risk of distal embolisation.", {
+      x: 0.8, y: 2.95, w: 3.3, h: 0.9, fontFace: BODY, fontSize: 12.5, color: "C9CFDA", margin: 0, valign: "top", isTextBox: true,
+    });
     s.addText("Why enrich? Benefit is most plausible where there is the most clot to embolise.", {
-      x: 0.8, y: 4.0, w: 3.4, h: 0.6, fontFace: HEAD, italic: true, fontSize: 12, color: ROSE, margin: 0, valign: "top", isTextBox: true,
+      x: 0.8, y: 4.0, w: 3.3, h: 0.6, fontFace: HEAD, italic: true, fontSize: 12, color: ROSE, margin: 0, valign: "top", isTextBox: true,
     });
     // Right endpoints
     const eps = [
@@ -301,7 +342,7 @@ async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
       s.addText(d, { x: 5.8, y: y + 0.42, w: 3.5, h: 0.45, fontFace: BODY, fontSize: 13, color: TEXT, margin: 0, valign: "top", isTextBox: true });
     });
     s.addNotes(
-      "Patients were selected for a large thrombus (TIMI thrombus grade 3 or more); occluded vessels were re-graded after wiring. " +
+      "TIMI thrombus grade 3 means a definite thrombus longer than half the vessel diameter; this is the population in which thrombectomy has the most to offer. " +
       "The primary endpoint is a physiological one — enzymatic infarct size — backed by CMR infarct size as a secondary, with 30-day safety events."
     );
   }
@@ -444,11 +485,11 @@ async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
     const s = pres.addSlide();
     frame(s, true);
     s.addImage({ data: ECG_RED, x: -0.2, y: 3.95, w: 10.4, h: 1.0, transparency: 70 });
-    header(s, "Take-home", "What NATURE means for the cath lab", true);
+    header(s, "Key findings", "Three things NATURE showed", true);
     const pts = [
       ["Superior on infarct size", "enVast before PCI cut enzymatic infarct size by ~26% in large-thrombus STEMI (P = 0.001)."],
       ["Consistent and safe", "CMR pointed the same way; no strokes or deaths with enVast at 30 days."],
-      ["Not yet practice-changing", "A larger outcomes trial is needed before routine use — selective, not universal."],
+      ["Right patient, right time", "Benefit shown where it is most plausible: a large thrombus, treated within 8 hours of symptom onset."],
     ];
     pts.forEach(([t, d], i) => {
       const x = 0.5 + i * 3.1;
@@ -458,8 +499,39 @@ async function ecg(color, w = 2400, h = 300, beats = 4, stroke = 7) {
       s.addText(d, { x: x + 0.25, y: 2.75, w: 2.4, h: 1.1, fontFace: BODY, fontSize: 12, color: "C9CFDA", margin: 0, valign: "top", isTextBox: true });
     });
     s.addNotes(
-      "Bottom line: in carefully selected STEMI patients with a large thrombus, stent-retriever thrombectomy before PCI reduced infarct size with no early safety penalty. " +
-      "It is a promising signal, but clinical-outcome data are needed before it changes guidelines."
+      "Three findings: a significant reduction in enzymatic infarct size, a concordant MRI signal with no early safety penalty, " +
+      "and a result that applies to a selected population — large thrombus, early presentation."
+    );
+  }
+
+  // ─────────────── Conclusion (dark) ───────────────
+  {
+    const s = pres.addSlide();
+    frame(s, true);
+    s.addImage({ data: ECG_RED, x: -0.2, y: 2.05, w: 10.4, h: 0.6, transparency: 65 });
+    s.addText("CONCLUSION", {
+      x: 0.5, y: 0.35, w: 9, h: 0.3, fontFace: BODY, fontSize: 11, bold: true, charSpacing: 4, color: CRIMSON, margin: 0, isTextBox: true,
+    });
+    s.addImage({ data: I.quote, x: 0.5, y: 0.85, w: 0.45, h: 0.45 });
+    s.addText([
+      { text: "In STEMI with a large thrombus burden, enVast-assisted thrombectomy before PCI was ", options: { color: WHITE } },
+      { text: "superior to standard PCI", options: { color: CRIMSON, bold: true } },
+      { text: " in reducing infarct size, with no early safety penalty.", options: { color: WHITE } },
+    ], { x: 1.15, y: 0.8, w: 8.3, h: 1.6, fontFace: HEAD, italic: true, fontSize: 24, valign: "top", margin: 0, isTextBox: true });
+    const cols = [
+      [I.hospital, "For practice today", "A promising option for selected large-thrombus cases, not yet a routine strategy. Guidelines stay unchanged until outcome data arrive."],
+      [I.flask, "For research next", "An adequately powered randomised trial with hard clinical endpoints: death, heart failure and stroke."],
+    ];
+    cols.forEach(([ic, t, d], i) => {
+      const x = 0.5 + i * 4.6;
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 2.75, w: 4.4, h: 1.95, fill: { color: CARD }, line: { color: CARD }, rectRadius: 0.12 });
+      circleIcon(s, x + 0.25, 2.95, 0.5, i === 0 ? TEAL : CRIMSON, i === 0 ? I.check : I.flask);
+      s.addText(t, { x: x + 0.9, y: 2.95, w: 3.3, h: 0.5, fontFace: HEAD, fontSize: 16, bold: true, color: WHITE, valign: "middle", margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 0.25, y: 3.6, w: 3.95, h: 1.0, fontFace: BODY, fontSize: 12.5, color: "C9CFDA", valign: "top", margin: 0, isTextBox: true });
+    });
+    s.addNotes(
+      "Conclusion: NATURE met its superiority hypothesis on infarct size. enVast-assisted thrombectomy before PCI reduced infarct size in large-thrombus STEMI, and 30-day safety was reassuring. " +
+      "Because the trial was small and used a surrogate endpoint, it should not yet change routine practice; the next step is an outcomes trial."
     );
   }
 
