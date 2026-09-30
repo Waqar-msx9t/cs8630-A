@@ -550,9 +550,8 @@ function deviceSvg() {
     n++;
     const s = pres.addSlide();
     s.background = { color: MAROON };
-    s.addText("Thank you", { x: 0.5, y: 1.55, w: 9, h: 1.1, fontFace: HEAD, fontSize: 60, bold: true, color: WHITE, align: "center", margin: 0, isTextBox: true });
-    s.addText("Questions and discussion", { x: 0.5, y: 2.7, w: 9, h: 0.5, fontFace: BODY, fontSize: 20, color: "F3C9D5", align: "center", margin: 0, isTextBox: true });
-    s.addText(`${PRESENTER}  ·  ${ROLE}  ·  ${PLACE}`, { x: 0.5, y: 4.4, w: 9, h: 0.4, fontFace: BODY, fontSize: 13, color: WHITE, align: "center", margin: 0, isTextBox: true });
+    s.addText("Thank you", { x: 0.5, y: 1.85, w: 9, h: 1.1, fontFace: HEAD, fontSize: 60, bold: true, color: WHITE, align: "center", margin: 0, isTextBox: true });
+    s.addText("Questions and discussion", { x: 0.5, y: 3.0, w: 9, h: 0.5, fontFace: BODY, fontSize: 20, color: "F3C9D5", align: "center", margin: 0, isTextBox: true });
   }
 
   await pres.writeFile({ fileName: OUT });
