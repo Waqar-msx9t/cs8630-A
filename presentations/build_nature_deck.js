@@ -151,7 +151,6 @@ function deviceSvg() {
   pres.author = PRESENTER;
 
   const I = {
-    heart: await icon(fa.FaHeartbeat, WHITE),
     check: await icon(fa.FaCheck, WHITE),
     times: await icon(fa.FaTimes, WHITE),
     info: await icon(fa.FaInfoCircle, MAROON),
@@ -175,9 +174,6 @@ function deviceSvg() {
     s.addText(title, {
       x: 0.5, y: 0.35, w: 9, h: 0.6, fontFace: HEAD, fontSize: 28, bold: true, color: INK,
       margin: 0, valign: "middle", isTextBox: true,
-    });
-    s.addText("NATURE Trial · Journal Club · Cardiac Centre, BVH Bahawalpur", {
-      x: 0.5, y: 5.15, w: 6, h: 0.25, fontFace: BODY, fontSize: 9, color: MUTED, margin: 0, isTextBox: true,
     });
     s.addText(String(n), {
       x: 9.0, y: 5.15, w: 0.5, h: 0.25, fontFace: BODY, fontSize: 9, bold: true, color: MAROON, align: "right", margin: 0, isTextBox: true,
@@ -225,8 +221,6 @@ function deviceSvg() {
       { text: ROLE, options: { fontSize: 14, color: WHITE, breakLine: true } },
       { text: PLACE, options: { fontSize: 14, color: WHITE } },
     ], { x: 1.0, y: 3.3, w: 4.8, h: 1.4, fontFace: BODY, valign: "middle", margin: 0, isTextBox: true });
-    s.addShape(pres.shapes.OVAL, { x: 7.3, y: 3.1, w: 1.8, h: 1.8, fill: { color: MAROON_DK }, line: { color: MAROON_DK } });
-    s.addImage({ data: I.heart, x: 7.75, y: 3.55, w: 0.9, h: 0.9 });
     s.addNotes("Journal club presentation of the NATURE trial, presented as a late-breaking clinical trial at ESC Congress 2026 in Munich by Prof. Marco Valgimigli.");
   }
 
