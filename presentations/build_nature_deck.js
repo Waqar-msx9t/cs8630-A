@@ -161,6 +161,14 @@ function deviceSvg() {
     down: await icon(fa.FaArrowDown, GREY),
   };
   const DEVICE = await svgToPng(deviceSvg());
+  // Cover frame shown on the video before it plays
+  const VIDEO_COVER = await svgToPng(`<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+    <rect width="1280" height="720" fill="#1F2937"/>
+    <circle cx="640" cy="330" r="90" fill="#8C1D40"/>
+    <path d="M610 280 L610 380 L695 330 Z" fill="#FFFFFF"/>
+    <text x="640" y="500" font-family="Carlito, Calibri, Arial" font-size="40" fill="#FFFFFF" text-anchor="middle">enVast procedure animation</text>
+    <text x="640" y="555" font-family="Carlito, Calibri, Arial" font-size="28" fill="#C9CFDA" text-anchor="middle">Click to play (internet connection needed)</text>
+  </svg>`);
   const P = [];
   for (let i = 1; i <= 4; i++) P.push(await svgToPng(panel(i)));
 
@@ -279,6 +287,29 @@ function deviceSvg() {
     });
     s.addText("Schematic illustrations (not to scale).", {
       x: 0.5, y: 4.8, w: 9, h: 0.25, fontFace: BODY, fontSize: 10, italic: true, color: MUTED, margin: 0, isTextBox: true,
+    });
+  }
+
+  // ═════════ 5. Procedure animation (video) ═════════
+  {
+    const VIDEO_ID = "nmYZFin062I";
+    const VIDEO_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
+    const s = slide("Procedure animation (video)",
+      "Official Vesalio animation of the enVast coronary thrombectomy procedure, embedded from YouTube. Click the video to play it; the laptop must be online. " +
+      "If it does not play, use the 'Watch on YouTube' link.");
+    s.addMedia({ type: "online", link: `https://www.youtube.com/embed/${VIDEO_ID}`, cover: VIDEO_COVER, x: 0.5, y: 1.15, w: 6.2, h: 3.49 });
+    panelBox(s, 7.0, 1.15, 2.5, 3.49);
+    s.addText("Source", { x: 7.2, y: 1.35, w: 2.1, h: 0.3, fontFace: HEAD, fontSize: 14, bold: true, color: MAROON, margin: 0, isTextBox: true });
+    s.addText("Vesalio. enVast Coronary Thrombectomy System Procedure Animation. YouTube.", {
+      x: 7.2, y: 1.7, w: 2.1, h: 1.0, fontFace: BODY, fontSize: 12, color: INK, valign: "top", margin: 0, isTextBox: true,
+    });
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 7.2, y: 2.85, w: 2.1, h: 0.5, fill: { color: MAROON }, line: { color: MAROON }, rectRadius: 0.25 });
+    s.addText("Watch on YouTube", {
+      x: 7.2, y: 2.85, w: 2.1, h: 0.5, fontFace: BODY, fontSize: 13, bold: true, color: WHITE, align: "center", valign: "middle", margin: 0, isTextBox: true,
+      hyperlink: { url: VIDEO_URL, tooltip: VIDEO_URL },
+    });
+    s.addText("Needs an internet connection during the talk.", {
+      x: 7.2, y: 3.55, w: 2.1, h: 0.9, fontFace: BODY, fontSize: 11, italic: true, color: MUTED, valign: "top", margin: 0, isTextBox: true,
     });
   }
 
